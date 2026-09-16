@@ -12,15 +12,14 @@ using UserService.Validators;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ── Controllers + JSON ───────────────────────────────────────────────────────
+// ── Controllers + JSON ────────────────────────────────────────────────────────
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
-        // All enum values serialize as SCREAMING_SNAKE_CASE on the wire (e.g. "CHECKED_OUT")
         options.JsonSerializerOptions.Converters.Add(new ScreamingSnakeEnumConverterFactory());
     });
 
-// ── FluentValidation ─────────────────────────────────────────────────────────
+// ── FluentValidation ──────────────────────────────────────────────────────────
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddScoped<IValidator<RegisterRequest>, RegisterRequestValidator>();
 builder.Services.AddScoped<IValidator<LoginRequest>, LoginRequestValidator>();
@@ -30,8 +29,18 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // ── Database ──────────────────────────────────────────────────────────────────
-builder.Services.AddDbContext<UserServiceContext>(options =>
-    options.UseInMemoryDatabase("UserServiceDb"));
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
+if (!string.IsNullOrWhiteSpace(connectionString))
+{
+    builder.Services.AddDbContext<UserServiceContext>(options =>
+        options.UseNpgsql(connectionString));
+}
+else
+{
+    builder.Services.AddDbContext<UserServiceContext>(options =>
+        options.UseInMemoryDatabase("UserServiceDb"));
+}
 
 // ── JWT Authentication ────────────────────────────────────────────────────────
 var jwtSecret = builder.Configuration["Jwt:Secret"]
@@ -48,15 +57,12 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         {
             ValidateIssuer = true,
             ValidIssuer = jwtIssuer,
-
             ValidateAudience = true,
             ValidAudience = jwtAudience,
-
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
-
             ValidateLifetime = true,
-            ClockSkew = TimeSpan.Zero   // No grace period on expiry
+            ClockSkew = TimeSpan.Zero
         };
     });
 
@@ -66,18 +72,29 @@ builder.Services.AddAuthorization();
 builder.Services.AddScoped<IPasswordService, PasswordService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 
-// ── HttpClient for Reservation Service ───────────────────────────────────────
+// ── HttpClient: Reservation Service ──────────────────────────────────────────
 var reservationServiceUrl = builder.Configuration["ServiceUrls:ReservationService"]
     ?? "http://localhost:5003";
 
 builder.Services.AddHttpClient<IReservationServiceClient, ReservationServiceClient>(client =>
 {
     client.BaseAddress = new Uri(reservationServiceUrl);
-    client.Timeout = TimeSpan.FromSeconds(5); // Fast fail if Reservation Service is down
+    client.Timeout = TimeSpan.FromSeconds(5);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
 var app = builder.Build();
+
+// ── Auto-migrate on startup (production only) ─────────────────────────────────
+if (!string.IsNullOrWhiteSpace(connectionString))
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<UserServiceContext>();
+    db.Database.Migrate();
+
+    // Seed a default librarian account if one does not exist.
+    UserServiceSeeder.Seed(db);
+}
 
 if (app.Environment.IsDevelopment())
 {
@@ -85,9 +102,15 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseAuthentication();   // Must come before UseAuthorization
-app.UseAuthorization();
+// Swagger in production too — useful for live demo grading.
+if (app.Environment.IsProduction())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
 
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
