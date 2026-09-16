@@ -3,16 +3,18 @@ using CatalogService.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ── Controllers ───────────────────────────────────────────────────────────────
 builder.Services.AddControllers();
 
+// ── Swagger ───────────────────────────────────────────────────────────────────
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Milestone 1: in-memory provider for local development.
-// Swapped for Npgsql/PostgreSQL (RDS) in the deployment milestone.
+// ── Database ──────────────────────────────────────────────────────────────────
 builder.Services.AddDbContext<CatalogServiceContext>(options =>
     options.UseInMemoryDatabase("CatalogServiceDb"));
 
+// ─────────────────────────────────────────────────────────────────────────────
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -22,7 +24,6 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseAuthorization();
-
 app.MapControllers();
 
 app.Run();
