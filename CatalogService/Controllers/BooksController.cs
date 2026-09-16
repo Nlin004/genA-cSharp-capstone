@@ -120,6 +120,63 @@ public class BooksController : ControllerBase
 
         return Ok(ToDetail(book));
     }
+    
+    // PATCH /api/catalog/books/{bookId}/availability
+    // Internal — called by Reservation Service when a book is reserved (+delta -1)
+    // or returned / claim released (+delta +1).
+    [HttpPatch("{bookId:guid}/availability")]
+    public async Task<IActionResult> UpdateAvailability(
+        Guid bookId,
+        [FromBody] BookAvailabilityUpdateRequest request)
+    {
+        if (request.Delta != 1 && request.Delta != -1)
+        {
+            return BadRequest(new ErrorResponse
+            {
+                Error = "INVALID_DELTA",
+                Message = "Delta must be exactly 1 or -1."
+            });
+        }
+
+        var book = await _db.Books.FindAsync(bookId);
+        if (book is null)
+        {
+            return NotFound(new ErrorResponse
+            {
+                Error = "BOOK_NOT_FOUND",
+                Message = $"No book found with ID {bookId}."
+            });
+        }
+
+        var newCount = book.AvailableCopies + request.Delta;
+
+        if (newCount < 0)
+        {
+            return BadRequest(new ErrorResponse
+            {
+                Error = "AVAILABILITY_UNDERFLOW",
+                Message = "Available copies cannot go below zero."
+            });
+        }
+
+        if (newCount > book.TotalCopies)
+        {
+            return BadRequest(new ErrorResponse
+            {
+                Error = "AVAILABILITY_OVERFLOW",
+                Message = "Available copies cannot exceed total copies."
+            });
+        }
+
+        book.AvailableCopies = newCount;
+        await _db.SaveChangesAsync();
+
+        _logger.LogInformation(
+            "Book {BookId} availableCopies updated by {Delta} → now {Count}",
+            bookId, request.Delta, book.AvailableCopies);
+
+        return Ok(new { bookId = book.BookId, availableCopies = book.AvailableCopies });
+    }
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
