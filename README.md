@@ -2,7 +2,7 @@
 
 ## Architecture
 
-The three ASP.NET Core (.NET 10) microservices I've created un as separate processes on a single
+The three ASP.NET Core (.NET 10) microservices I've created function as separate processes on a single
 AWS Elastic Beanstalk instance, fronted by one nginx reverse proxy. Each service
 has its own PostgreSQL database on a shared RDS instance.
 
