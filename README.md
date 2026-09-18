@@ -7,19 +7,19 @@ AWS Elastic Beanstalk instance, fronted by one nginx reverse proxy. Each service
 has its own PostgreSQL database on a shared RDS instance.
 
 ```
-                        ┌─────────────────────────────────────────┐
-                        │   Elastic Beanstalk (t3.medium, single) │
-                        │                                         │
-  Internet ──▶ nginx ───┼──▶ UserService        (:5000, "web")    │
-                        │──▶ CatalogService      (:5002, "catalog")│
-                        │──▶ ReservationService  (:5003, "reservation")│
-                        └─────────────────────────────────────────┘
+                        ┌───────────────────────────────────────────────┐
+                        │      Elastic Beanstalk (t3.medium, single)    │
+                        │                                               │
+  Internet ──▶ nginx ───┼──▶ UserService        (:5000, "web")         │
+                        │──▶ CatalogService      (:5002, "catalog")     │
+                        │──▶ ReservationService  (:5003, "reservation") │
+                        └───────────────────────────────────────────────┘
                                         │
                                         ▼
-                        ┌─────────────────────────────────────────┐
-                        │  RDS PostgreSQL (db.t3.micro, private)   │
+                        ┌──────────────────────────────────────────────────────────┐
+                        │  RDS PostgreSQL (db.t3.micro, private)                   │
                         │  UserServiceDb | CatalogServiceDb | ReservationServiceDb │
-                        └─────────────────────────────────────────┘
+                        └──────────────────────────────────────────────────────────┘
 ```
 
 - nginx routes `/` → UserService, `/catalog/*` → CatalogService, `/reservations/*` → ReservationService.
