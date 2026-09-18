@@ -11,7 +11,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // ── Database ──────────────────────────────────────────────────────────────────
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+var connectionString = builder.Configuration.GetConnectionString("CatalogDb");
 
 if (!string.IsNullOrWhiteSpace(connectionString))
 {
@@ -32,8 +32,16 @@ if (!string.IsNullOrWhiteSpace(connectionString))
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<CatalogServiceContext>();
-    db.Database.Migrate();
-    CatalogServiceSeeder.Seed(db);
+    try
+    {
+        db.Database.Migrate();
+        CatalogServiceSeeder.Seed(db);
+    }
+    catch (Exception ex)
+    {
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Migration or seeding failed: {Message}", ex.Message);
+    }
 }
 
 if (app.Environment.IsDevelopment())

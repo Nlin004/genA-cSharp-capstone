@@ -49,4 +49,27 @@ public class CatalogServiceClient : ICatalogServiceClient
             return false;
         }
     }
+
+    public async Task<CatalogBookDto?> GetBookAsync(Guid bookId)
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync($"/api/catalog/books/{bookId}");
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning(
+                    "CatalogService returned {StatusCode} fetching book {BookId}",
+                    (int)response.StatusCode, bookId);
+                return null;
+            }
+
+            var json = await response.Content.ReadAsStringAsync();
+            return JsonSerializer.Deserialize<CatalogBookDto>(json, _jsonOptions);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "CatalogService unavailable while fetching book {BookId}", bookId);
+            return null;
+        }
+    }
 }

@@ -12,7 +12,7 @@ namespace ReservationService.Controllers;
 
 [ApiController]
 [Route("api/reservations")]
-[Authorize]
+[Authorize] 
 public class ReservationsController : ControllerBase
 {
     private const int MaxActiveReservations = 5;
@@ -117,17 +117,15 @@ public class ReservationsController : ControllerBase
             });
 
         // 4. Create the reservation
+        var bookInfo = await _catalogClient.GetBookAsync(request.BookId);
         var now = DateTime.UtcNow;
         var reservation = new Reservation
         {
             ReservationId = Guid.NewGuid(),
             BookId = request.BookId,
             UserId = userId.Value,
-            // BookTitle/Author cached from userInfo isn't available — we cache what CatalogService
-            // returns. Since we don't do a separate GET, use empty strings as placeholder;
-            // they will be populated from the waitlist cache or left empty until M5 seed data.
-            BookTitle = string.Empty,
-            BookAuthor = string.Empty,
+            BookTitle = bookInfo?.Title ?? string.Empty,
+            BookAuthor = bookInfo?.Author ?? string.Empty,
             Status = ReservationStatus.Reserved,
             ReservedAt = now,
             ExpiresAt = now.AddDays(ReservationExpiryDays),
@@ -460,14 +458,15 @@ public class ReservationsController : ControllerBase
         }
 
         // Book is unavailable — add to waitlist.
+        var bookInfo = await _catalogClient.GetBookAsync(request.BookId);
         var now = DateTime.UtcNow;
         var entry = new Waitlist
         {
             WaitlistId = Guid.NewGuid(),
             BookId = request.BookId,
             UserId = userId.Value,
-            BookTitle = string.Empty,
-            BookAuthor = string.Empty,
+            BookTitle = bookInfo?.Title ?? string.Empty,
+            BookAuthor = bookInfo?.Author ?? string.Empty,
             Status = WaitlistStatus.Waiting,
             JoinedAt = now
         };
